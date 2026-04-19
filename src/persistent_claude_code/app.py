@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gi.repository import Adw, Gio
+from gi.repository import Adw, Gio, Gtk
 
 from persistent_claude_code.config import Config
 from persistent_claude_code.config import load as load_config
@@ -68,6 +68,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._session_pages: dict[str, Adw.TabPage] = {}
         self._status_monitors: dict[str, object] = {}
         self.connect("close-request", self._on_close_request)
+        self._install_shortcuts()
 
     def toast(self, text: str) -> None:
         self._toast_overlay.add_toast(Adw.Toast(title=text))
@@ -174,6 +175,81 @@ class MainWindow(Adw.ApplicationWindow):
             session_id=None,
             argv=argv,
         )
+
+    def _install_shortcuts(self) -> None:
+        controller = Gtk.ShortcutController()
+        controller.set_scope(Gtk.ShortcutScope.GLOBAL)
+
+        def make_action(callback):
+            def _action(*_args):
+                callback()
+                return True
+            return Gtk.CallbackAction.new(_action)
+
+        def shortcut(accel: str, cb):
+            trig = Gtk.ShortcutTrigger.parse_string(accel)
+            controller.add_shortcut(Gtk.Shortcut.new(trig, make_action(cb)))
+
+        shortcut("<Ctrl>k", lambda: self.sidebar.search.grab_focus())
+        shortcut("<Ctrl>w", self._close_current_tab)
+        shortcut("<Ctrl>Tab", lambda: self._cycle_tab(1))
+        shortcut("<Ctrl><Shift>Tab", lambda: self._cycle_tab(-1))
+        shortcut("<Ctrl><Shift>b", self._toggle_current_browser)
+        shortcut("<Ctrl>t", self._focus_new_session_of_current_project)
+        shortcut("<Ctrl>question", self._show_about)
+
+        self.add_controller(controller)
+
+    def _current_tab(self):
+        page = self._tabs.get_selected_page()
+        if page is None:
+            return None
+        return page.get_child()
+
+    def _close_current_tab(self) -> None:
+        page = self._tabs.get_selected_page()
+        if page is not None:
+            self._tabs.close_page(page)
+
+    def _cycle_tab(self, direction: int) -> None:
+        n = self._tabs.get_n_pages()
+        if n == 0:
+            return
+        current = self._tabs.get_selected_page()
+        idx = self._tabs.get_page_position(current) if current else 0
+        new_idx = (idx + direction) % n
+        self._tabs.set_selected_page(self._tabs.get_nth_page(new_idx))
+
+    def _toggle_current_browser(self) -> None:
+        tab = self._current_tab()
+        if tab is not None and hasattr(tab, "toggle_browser"):
+            tab.toggle_browser()
+
+    def _focus_new_session_of_current_project(self) -> None:
+        tree = self.sidebar._tree  # noqa: SLF001
+        child = tree.get_first_child()
+        while child is not None:
+            if isinstance(child, Gtk.Expander):
+                child.set_expanded(True)
+                listbox = child.get_child()
+                if isinstance(listbox, Gtk.ListBox):
+                    first = listbox.get_row_at_index(0)
+                    if first is not None:
+                        first.grab_focus()
+                return
+            child = child.get_next_sibling()
+
+    def _show_about(self) -> None:
+        from persistent_claude_code import __version__
+        about = Adw.AboutDialog(
+            application_name=APP_NAME,
+            application_icon="io.github.seulsale.PersistentClaudeCode",
+            developer_name="seulsale",
+            version=__version__,
+            website="https://github.com/seulsale/persistent-claude-code",
+            license_type=Gtk.License.MIT_X11,
+        )
+        about.present(self)
 
     def _on_close_request(self, *_a: object) -> bool:
         w = self.get_width()
