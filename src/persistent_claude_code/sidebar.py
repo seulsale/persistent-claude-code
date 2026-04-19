@@ -43,8 +43,10 @@ class _SessionRow(Gtk.ListBoxRow):
     def __init__(self, session: Session) -> None:
         super().__init__()
         self.session = session
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=4, margin_bottom=4, margin_start=8, margin_end=8)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=8, margin_bottom=8, margin_start=10, margin_end=10)
         title = Gtk.Label(label=session.title, xalign=0, ellipsize=3, max_width_chars=40)
+        title.set_single_line_mode(True)
+        title.set_lines(1)
         title.add_css_class("heading")
         meta_text = _relative_time(session.last_activity)
         if session.branch:
@@ -175,7 +177,9 @@ class Sidebar(Gtk.Box):
 
             listbox = Gtk.ListBox()
             listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+            listbox.set_show_separators(True)
             listbox.add_css_class("navigation-sidebar")
+            listbox.add_css_class("boxed-list")
             listbox.connect("row-activated", self._on_row_activated)
 
             new_row = _NewSessionRow(project)

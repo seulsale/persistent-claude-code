@@ -179,6 +179,8 @@ class MainWindow(Adw.ApplicationWindow):
     def _install_shortcuts(self) -> None:
         controller = Gtk.ShortcutController()
         controller.set_scope(Gtk.ShortcutScope.GLOBAL)
+        # Capture phase so VTE doesn't swallow the keystrokes before us.
+        controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
 
         def make_action(callback):
             def _action(*_args):

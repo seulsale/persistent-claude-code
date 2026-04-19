@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -44,6 +45,15 @@ CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
 TAIL_BYTES = 200 * 1024
 UNTITLED = "Untitled session"
+TITLE_MAX_CHARS = 120
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _clean_title(text: str) -> str:
+    collapsed = _WHITESPACE_RE.sub(" ", text).strip()
+    if len(collapsed) > TITLE_MAX_CHARS:
+        return collapsed[: TITLE_MAX_CHARS - 1] + "…"
+    return collapsed
 
 
 @dataclass
@@ -111,8 +121,9 @@ def parse_session_metadata(path: Path) -> SessionMetadata:
         if isinstance(git, str) and git:
             branch = git
 
+    raw = title or first_user_text or UNTITLED
     return SessionMetadata(
-        title=title or first_user_text or UNTITLED,
+        title=_clean_title(raw) if raw is not UNTITLED else UNTITLED,
         branch=branch,
     )
 
