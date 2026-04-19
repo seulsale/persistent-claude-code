@@ -1,7 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <rect width="256" height="256" rx="40" fill="#2e3440"/>
-  <rect x="32" y="56" width="192" height="144" rx="16" fill="#3b4252" stroke="#88c0d0" stroke-width="3"/>
-  <text x="56" y="136" font-family="monospace" font-size="44" fill="#a3be8c">&gt;_</text>
-  <circle cx="200" cy="72" r="10" fill="#bf616a"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b4252"/>
+      <stop offset="1" stop-color="#2e3440"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d97757"/>
+      <stop offset="1" stop-color="#c4795a"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+
+  <!-- terminal window -->
+  <rect x="36" y="56" width="184" height="128" rx="14"
+        fill="#1e222a" stroke="#4c566a" stroke-width="2"/>
+
+  <!-- traffic-light dots -->
+  <circle cx="54" cy="74" r="4" fill="#bf616a"/>
+  <circle cx="68" cy="74" r="4" fill="#ebcb8b"/>
+  <circle cx="82" cy="74" r="4" fill="#a3be8c"/>
+
+  <!-- prompt chevron + cursor -->
+  <path d="M54 108 L66 118 L54 128"
+        fill="none" stroke="#88c0d0" stroke-width="4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="74" y="116" width="28" height="6" rx="2" fill="#e5e9f0"/>
+
+  <!-- assistant reply lines -->
+  <rect x="54" y="140" width="128" height="6" rx="3" fill="url(#accent)"/>
+  <rect x="54" y="154" width="92"  height="6" rx="3" fill="url(#accent)" opacity="0.7"/>
+
+  <!-- speech-bubble tail hinting at conversation -->
+  <path d="M184 184 L204 200 L190 182 Z"
+        fill="#1e222a" stroke="#4c566a" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- live-session dot -->
+  <circle cx="206" cy="72" r="7" fill="#a3be8c"/>
+  <circle cx="206" cy="72" r="11" fill="none" stroke="#a3be8c" stroke-width="1" opacity="0.4"/>
 </svg>
