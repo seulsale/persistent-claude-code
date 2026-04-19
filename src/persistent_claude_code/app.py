@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from persistent_claude_code.config import Config
 from persistent_claude_code.config import load as load_config
@@ -97,6 +97,7 @@ class MainWindow(Adw.ApplicationWindow):
             cwd=cwd,
             argv=argv,
             on_close_requested=self._request_close_tab,
+            extra_env={"BROWSER": "persistent-claude-code --open-url"},
         )
         page = self._tabs.append(tab)
         page.set_title(title[:30])
@@ -222,6 +223,13 @@ class MainWindow(Adw.ApplicationWindow):
         new_idx = (idx + direction) % n
         self._tabs.set_selected_page(self._tabs.get_nth_page(new_idx))
 
+    def open_url_in_current_tab(self, url: str) -> None:
+        tab = self._current_tab()
+        if tab is None or not hasattr(tab, "show_browser_with_url"):
+            self.toast(f"Open a session tab first to use the browser for: {url}")
+            return
+        tab.show_browser_with_url(url)
+
     def _toggle_current_browser(self) -> None:
         tab = self._current_tab()
         if tab is not None and hasattr(tab, "toggle_browser"):
@@ -271,12 +279,33 @@ class App(Adw.Application):
     def __init__(self) -> None:
         super().__init__(
             application_id=APP_ID,
-            flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
         )
         self.config: Config = load_config()
         self._window: MainWindow | None = None
+
+        self.add_main_option(
+            "open-url",
+            0,
+            GLib.OptionFlags.NONE,
+            GLib.OptionArg.STRING,
+            "Open the given URL in the current tab's browser pane",
+            "URL",
+        )
 
     def do_activate(self) -> None:
         if self._window is None:
             self._window = MainWindow(self)
         self._window.present()
+
+    def do_command_line(self, command_line: Gio.ApplicationCommandLine) -> int:
+        options = command_line.get_options_dict()
+        url_variant = options.lookup_value("open-url", None)
+
+        self.activate()  # ensures the window exists
+
+        if url_variant is not None:
+            url = url_variant.get_string()
+            if self._window is not None:
+                self._window.open_url_in_current_tab(url)
+        return 0

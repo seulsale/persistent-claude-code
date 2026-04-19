@@ -38,13 +38,16 @@ class BrowserPane(Gtk.Box):
 
         self.webview.connect("load-changed", self._sync_url)
 
-    def _on_url_activate(self, entry: Gtk.Entry) -> None:
-        text = entry.get_text().strip()
-        if not text:
+    def load_url(self, url: str) -> None:
+        url = url.strip()
+        if not url:
             return
-        if not text.startswith(("http://", "https://", "about:", "file://")):
-            text = "https://" + text
-        self.webview.load_uri(text)
+        if not url.startswith(("http://", "https://", "about:", "file://")):
+            url = "https://" + url
+        self.webview.load_uri(url)
+
+    def _on_url_activate(self, entry: Gtk.Entry) -> None:
+        self.load_url(entry.get_text())
 
     def _sync_url(self, _webview, _evt) -> None:
         uri = self.webview.get_uri()

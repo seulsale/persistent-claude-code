@@ -20,6 +20,7 @@ class SessionTab(Gtk.Box):
         cwd: str,
         argv: list[str],
         on_close_requested: Callable[[SessionTab], None],
+        extra_env: dict[str, str] | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.session_id = session_id
@@ -27,6 +28,7 @@ class SessionTab(Gtk.Box):
         self._argv = argv
         self._config = config
         self._on_close_requested = on_close_requested
+        self._extra_env = extra_env
 
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=4, margin_bottom=4, margin_start=6, margin_end=6)
         self._browser_toggle = Gtk.ToggleButton.new()
@@ -45,7 +47,7 @@ class SessionTab(Gtk.Box):
             session_id=session_id,
             on_resume=self._resume,
         )
-        self.terminal.spawn(argv, cwd)
+        self.terminal.spawn(argv, cwd, extra_env=extra_env)
         self.terminal._close_button.connect("clicked", lambda *_: self._on_close_requested(self))  # noqa: SLF001
 
         self._split = Adw.OverlaySplitView()
@@ -71,5 +73,11 @@ class SessionTab(Gtk.Box):
         else:
             self._split.set_show_sidebar(False)
 
+    def show_browser_with_url(self, url: str) -> None:
+        if not self._browser_toggle.get_active():
+            self._browser_toggle.set_active(True)
+        if self._browser is not None:
+            self._browser.load_url(url)
+
     def _resume(self) -> None:
-        self.terminal.spawn(self._argv, self.cwd)
+        self.terminal.spawn(self._argv, self.cwd, extra_env=self._extra_env)

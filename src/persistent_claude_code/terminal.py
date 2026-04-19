@@ -89,18 +89,26 @@ class TerminalPane(Gtk.Box):
         self._session_id: str | None = None
         self._on_resume_callback: Callable[[], None] | None = None
 
-    def spawn(self, argv: list[str], cwd: str) -> None:
+    def spawn(self, argv: list[str], cwd: str, extra_env: dict[str, str] | None = None) -> None:
+        import os
         self._last_argv = argv
         self._last_cwd = cwd
         self._stack.set_visible_child_name("terminal")
         self._ended_title.set_label("Session ended")
         self._ended_detail.set_label("")
 
+        if extra_env:
+            merged = dict(os.environ)
+            merged.update(extra_env)
+            envv = [f"{k}={v}" for k, v in merged.items()]
+        else:
+            envv = None
+
         self.terminal.spawn_async(
             Vte.PtyFlags.DEFAULT,
             cwd,
             argv,
-            None,
+            envv,
             GLib.SpawnFlags.DEFAULT,
             None, None,
             -1,
