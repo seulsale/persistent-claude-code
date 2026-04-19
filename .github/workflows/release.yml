@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-arch-package:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install deps
+        run: |
+          pacman -Syu --noconfirm base-devel git python python-gobject gtk4 libadwaita vte4 webkitgtk-6.0 ttf-jetbrains-mono
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+      - uses: actions/checkout@v4
+
+      - name: Build package
+        run: |
+          chown -R builder:builder .
+          su builder -c "cd packaging/aur && makepkg -s --noconfirm"
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packaging/aur/*.pkg.tar.zst
