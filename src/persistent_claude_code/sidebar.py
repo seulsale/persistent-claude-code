@@ -6,9 +6,20 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib, Gtk
 
-from persistent_claude_code.sessions import Model, Project, Session, filter_sessions, scan_projects
+from persistent_claude_code.sessions import (
+    CLAUDE_PROJECTS_DIR,
+    Model,
+    Project,
+    Session,
+    filter_sessions,
+    scan_projects,
+)
 
-CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
+_STATE_ICON = {
+    "working": ("● Working", "#33d17a"),
+    "waiting": ("● Waiting for input", "#f5c211"),
+    "idle":    ("● Idle", "#9a9996"),
+}
 
 OnOpenSession = Callable[[Session], None]
 OnNewSession = Callable[[Project], None]
@@ -118,6 +129,29 @@ class Sidebar(Gtk.Box):
 
     def get_row_for_session(self, session_id: str) -> _SessionRow | None:
         return self._rows.get(session_id)
+
+    def set_session_state(self, session_id: str, state: str | None) -> None:
+        row = self._rows.get(session_id)
+        if row is None:
+            return
+        if state is None:
+            row.status_dot.set_visible(False)
+            row.set_tooltip_text(None)
+            return
+
+        label, color = _STATE_ICON[state]
+        markup = f'<span foreground="{color}">●</span>'
+        # Replace the image with a Gtk.Label for colored text.
+        parent = row.status_dot.get_parent()
+        if parent is not None:
+            parent.remove(row.status_dot)
+            dot = Gtk.Label()
+            dot.set_use_markup(True)
+            dot.set_markup(markup)
+            row.status_dot = dot
+            parent.append(dot)
+        row.status_dot.set_visible(True)
+        row.set_tooltip_text(label)
 
     def _rebuild(self) -> None:
         child = self._tree.get_first_child()

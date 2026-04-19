@@ -40,6 +40,8 @@ def decode_project_dir(name: str) -> str:
     return name
 
 
+CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
+
 TAIL_BYTES = 200 * 1024
 UNTITLED = "Untitled session"
 

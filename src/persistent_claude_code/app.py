@@ -66,6 +66,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.set_content(self._toast_overlay)
 
         self._session_pages: dict[str, Adw.TabPage] = {}
+        self._status_monitors: dict[str, object] = {}
         self.connect("close-request", self._on_close_request)
 
     def toast(self, text: str) -> None:
@@ -87,6 +88,8 @@ class MainWindow(Adw.ApplicationWindow):
         return [binary, "--resume", resume_id]
 
     def _open_tab(self, *, title: str, tooltip: str, cwd: str, session_id: str | None, argv: list[str]) -> None:
+        from persistent_claude_code.status import SessionStatusMonitor
+
         tab = self._SessionTab(
             config=self._app.config,
             session_id=session_id,
@@ -99,8 +102,25 @@ class MainWindow(Adw.ApplicationWindow):
         page.set_tooltip(tooltip)
         if session_id is not None:
             self._session_pages[session_id] = page
+
+            jsonl_path = self._find_jsonl_for_session(session_id)
+            if jsonl_path is not None:
+                mon = SessionStatusMonitor(
+                    jsonl_path,
+                    on_state=lambda s, sid=session_id: self.sidebar.set_session_state(sid, s),
+                )
+                mon.start()
+                self._status_monitors[session_id] = mon
+
         self._tabs.set_selected_page(page)
         self._refresh_main_content()
+
+    def _find_jsonl_for_session(self, session_id: str):
+        for project in self.sidebar._model.projects:  # noqa: SLF001
+            for s in project.sessions:
+                if s.id == session_id:
+                    return s.jsonl_path
+        return None
 
     def _request_close_tab(self, tab) -> None:
         page = self._tabs.get_page(tab)
@@ -109,8 +129,12 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_close_page(self, _view: Adw.TabView, page: Adw.TabPage) -> bool:
         tab = page.get_child()
         sid = getattr(tab, "session_id", None)
-        if sid and self._session_pages.get(sid) is page:
-            del self._session_pages[sid]
+        if sid:
+            mon = self._status_monitors.pop(sid, None)
+            if mon is not None:
+                mon.stop()
+            if self._session_pages.get(sid) is page:
+                del self._session_pages[sid]
         self._tabs.close_page_finish(page, True)
         return True
 
