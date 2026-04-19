@@ -8,6 +8,38 @@ from gi.repository import GLib, Gtk, Vte
 
 OnExited = Callable[[int], None]
 
+_NORD_BG = "#2e3440"
+_NORD_FG = "#d8dee9"
+_NORD_PALETTE = [
+    "#3b4252",  # 0  black
+    "#bf616a",  # 1  red
+    "#a3be8c",  # 2  green
+    "#ebcb8b",  # 3  yellow
+    "#81a1c1",  # 4  blue
+    "#b48ead",  # 5  magenta
+    "#88c0d0",  # 6  cyan
+    "#e5e9f0",  # 7  white
+    "#4c566a",  # 8  bright black
+    "#bf616a",  # 9  bright red
+    "#a3be8c",  # 10 bright green
+    "#ebcb8b",  # 11 bright yellow
+    "#81a1c1",  # 12 bright blue
+    "#b48ead",  # 13 bright magenta
+    "#eceff4",  # 14 bright white
+    "#8fbcbb",  # 15 extra cyan
+]
+
+
+def _apply_nord_theme(terminal: Vte.Terminal) -> None:
+    from gi.repository import Gdk
+    def parse(hex_color: str) -> Gdk.RGBA:
+        rgba = Gdk.RGBA()
+        rgba.parse(hex_color)
+        return rgba
+
+    palette = [parse(c) for c in _NORD_PALETTE]
+    terminal.set_colors(parse(_NORD_FG), parse(_NORD_BG), palette)
+
 
 def resolve_claude_binary(override: str | None) -> str | None:
     if override:
@@ -19,7 +51,7 @@ class TerminalPane(Gtk.Box):
     __gtype_name__ = "PCCTerminalPane"
 
     def __init__(self, font: str, scrollback: int, on_exited: OnExited | None = None) -> None:
-        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
         self._on_exited = on_exited
 
         self._stack = Gtk.Stack()
@@ -32,13 +64,22 @@ class TerminalPane(Gtk.Box):
         font_desc = _font_description(font)
         if font_desc is not None:
             self.terminal.set_font(font_desc)
+        self.terminal.set_margin_top(8)
+        self.terminal.set_margin_bottom(8)
+        self.terminal.set_margin_start(8)
+        self.terminal.set_margin_end(8)
         self.terminal.connect("child-exited", self._on_child_exited)
+        _apply_nord_theme(self.terminal)
+        self.terminal.set_hexpand(True)
+        self.terminal.set_vexpand(True)
 
         self._stack.add_named(self.terminal, "terminal")
 
         self._ended_box = self._build_ended_box()
         self._stack.add_named(self._ended_box, "ended")
 
+        self._stack.set_hexpand(True)
+        self._stack.set_vexpand(True)
         self.append(self._stack)
         self._stack.set_visible_child_name("terminal")
 

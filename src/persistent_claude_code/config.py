@@ -8,7 +8,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Config:
-    terminal_font: str = "Monospace 11"
+    terminal_font: str = "JetBrains Mono 11"
     terminal_scrollback: int = 10000
     claude_binary: str | None = None
     browser_home: str = "about:blank"

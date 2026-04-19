@@ -7,7 +7,7 @@ from persistent_claude_code.config import Config, load, save
 def test_defaults_when_no_file(tmp_path: Path) -> None:
     cfg = load(tmp_path / "config.json")
     assert cfg == Config()
-    assert cfg.terminal_font == "Monospace 11"
+    assert cfg.terminal_font == "JetBrains Mono 11"
     assert cfg.terminal_scrollback == 10000
     assert cfg.claude_binary is None
     assert cfg.browser_home == "about:blank"

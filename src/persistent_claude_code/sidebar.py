@@ -164,7 +164,7 @@ class Sidebar(Gtk.Box):
         visible = filter_sessions(query, self._model)
 
         for project in visible.projects:
-            expander = Gtk.Expander(label=_project_label(project), expanded=True)
+            expander = Gtk.Expander(label=_project_label(project), expanded=False)
             expander.set_margin_start(4)
             expander.set_margin_end(4)
             if not project.exists:
