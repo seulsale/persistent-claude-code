@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Persistent Claude Code
+Comment=Browse and resume Claude Code sessions
+Exec=persistent-claude-code %U
+Icon=io.github.seulsale.PersistentClaudeCode
+Terminal=false
+Type=Application
+Categories=Development;Utility;
+StartupWMClass=io.github.seulsale.PersistentClaudeCode
