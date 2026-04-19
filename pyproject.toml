@@ -1,0 +1,31 @@
+[project]
+name = "persistent-claude-code"
+version = "0.1.0"
+description = "GTK desktop app for browsing and resuming Claude Code sessions"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+authors = [{ name = "seulsale" }]
+dependencies = []
+
+[project.scripts]
+persistent-claude-code = "persistent_claude_code.__main__:main"
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
