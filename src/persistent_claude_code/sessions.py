@@ -134,3 +134,58 @@ def resolve_project_cwd(subdir: Path) -> tuple[str, bool]:
 
     decoded = decode_project_dir(subdir.name)
     return decoded, Path(decoded).is_dir()
+
+
+def scan_projects(root: Path) -> Model:
+    if not root.is_dir():
+        return Model(projects=[])
+
+    projects: list[Project] = []
+    for subdir in sorted(root.iterdir()):
+        if not subdir.is_dir():
+            continue
+        jsonls = sorted(subdir.glob("*.jsonl"))
+        if not jsonls:
+            continue
+
+        project_path, exists = resolve_project_cwd(subdir)
+
+        sessions: list[Session] = []
+        for jsonl in jsonls:
+            meta = parse_session_metadata(jsonl)
+            sessions.append(Session(
+                id=jsonl.stem,
+                project_path=project_path,
+                title=meta.title,
+                branch=meta.branch,
+                last_activity=jsonl.stat().st_mtime,
+                jsonl_path=jsonl,
+            ))
+        sessions.sort(key=lambda s: s.last_activity, reverse=True)
+        projects.append(Project(path=project_path, exists=exists, sessions=sessions))
+
+    projects.sort(
+        key=lambda p: max((s.last_activity for s in p.sessions), default=0.0),
+        reverse=True,
+    )
+    return Model(projects=projects)
+
+
+def filter_sessions(query: str, model: Model) -> Model:
+    query = query.strip().lower()
+    if not query:
+        return model
+
+    result: list[Project] = []
+    for project in model.projects:
+        project_matches = query in project.path.lower()
+        if project_matches:
+            # keep all sessions in a matching project
+            result.append(Project(path=project.path, exists=project.exists, sessions=list(project.sessions)))
+            continue
+
+        matching_sessions = [s for s in project.sessions if query in s.title.lower()]
+        if matching_sessions:
+            result.append(Project(path=project.path, exists=project.exists, sessions=matching_sessions))
+
+    return Model(projects=result)
