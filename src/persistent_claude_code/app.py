@@ -19,9 +19,9 @@ class MainWindow(Adw.ApplicationWindow):
         w, h = app.config.window_size
         self.set_default_size(w, h)
 
+        from persistent_claude_code.claude_binary import resolve_claude_binary
         from persistent_claude_code.sidebar import Sidebar
         from persistent_claude_code.tab import SessionTab
-        from persistent_claude_code.terminal import resolve_claude_binary
 
         self._SessionTab = SessionTab
         self._resolve_claude = resolve_claude_binary

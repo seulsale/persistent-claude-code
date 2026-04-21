@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import shutil
 from collections.abc import Callable
-from pathlib import Path
 
 from gi.repository import GLib, Gtk, Vte
 
@@ -39,12 +37,6 @@ def _apply_nord_theme(terminal: Vte.Terminal) -> None:
 
     palette = [parse(c) for c in _NORD_PALETTE]
     terminal.set_colors(parse(_NORD_FG), parse(_NORD_BG), palette)
-
-
-def resolve_claude_binary(override: str | None) -> str | None:
-    if override:
-        return override if Path(override).is_file() else None
-    return shutil.which("claude")
 
 
 class TerminalPane(Gtk.Box):
