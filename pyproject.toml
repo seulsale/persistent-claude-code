@@ -1,6 +1,6 @@
 [project]
 name = "persistent-claude-code"
-version = "0.1.1"
+version = "0.1.3"
 description = "GTK desktop app for browsing and resuming Claude Code sessions"
 requires-python = ">=3.14"
 license = { text = "MIT" }
