@@ -4,7 +4,7 @@ from pathlib import Path
 
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from persistent_claude_code.config import Config
+from persistent_claude_code.config import Config, SavedTab
 from persistent_claude_code.config import load as load_config
 from persistent_claude_code.config import save as save_config
 
@@ -47,6 +47,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._main_toolbar.set_content(self._empty_state)
 
         self.sidebar = Sidebar(on_open=self._on_open_session, on_new=self._on_new_session)
+        self.sidebar.set_expanded_projects(list(app.config.expanded_projects))
         self.sidebar.refresh()
         self.sidebar.start_watching()
 
@@ -70,6 +71,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.connect("close-request", self._on_close_request)
         self._install_shortcuts()
 
+        self._restore_saved_tabs()
+
     def toast(self, text: str) -> None:
         self._toast_overlay.add_toast(Adw.Toast(title=text))
 
@@ -88,8 +91,28 @@ class MainWindow(Adw.ApplicationWindow):
             return [binary]
         return [binary, "--resume", resume_id]
 
-    def _open_tab(self, *, title: str, tooltip: str, cwd: str, session_id: str | None, argv: list[str]) -> None:
+    def _open_tab(
+        self,
+        *,
+        title: str,
+        tooltip: str,
+        cwd: str,
+        session_id: str | None,
+        argv: list[str],
+        start_dormant: bool = False,
+        select: bool = True,
+    ) -> None:
         from persistent_claude_code.status import SessionStatusMonitor
+
+        dormant_kwargs: dict[str, object] = {}
+        if start_dormant:
+            label = "Resume" if session_id is not None else "Start"
+            dormant_kwargs = {
+                "start_dormant": True,
+                "dormant_title": title,
+                "dormant_detail": "Saved from your last session. Click to launch claude.",
+                "dormant_resume_label": label,
+            }
 
         tab = self._SessionTab(
             config=self._app.config,
@@ -98,6 +121,7 @@ class MainWindow(Adw.ApplicationWindow):
             argv=argv,
             on_close_requested=self._request_close_tab,
             extra_env={"BROWSER": "persistent-claude-code --open-url"},
+            **dormant_kwargs,
         )
         page = self._tabs.append(tab)
         page.set_title(title[:30])
@@ -114,8 +138,21 @@ class MainWindow(Adw.ApplicationWindow):
                 mon.start()
                 self._status_monitors[session_id] = mon
 
-        self._tabs.set_selected_page(page)
+        if select:
+            self._tabs.set_selected_page(page)
         self._refresh_main_content()
+
+        if not start_dormant:
+            # Belt-and-suspenders: the sidebar's fs monitors should pick up
+            # claude's JSONL creation, but schedule explicit refreshes so a
+            # newly-started session (and its initial summary once claude
+            # writes it) show up in the sidebar without delay.
+            GLib.timeout_add(400, self._sidebar_refresh_once)
+            GLib.timeout_add(3000, self._sidebar_refresh_once)
+
+    def _sidebar_refresh_once(self) -> bool:
+        self.sidebar.refresh()
+        return False
 
     def _find_jsonl_for_session(self, session_id: str):
         for project in self.sidebar._model.projects:  # noqa: SLF001
@@ -270,9 +307,58 @@ class MainWindow(Adw.ApplicationWindow):
             claude_binary=self._app.config.claude_binary,
             browser_home=self._app.config.browser_home,
             window_size=(w, h),
+            open_tabs=tuple(self._collect_saved_tabs()),
+            expanded_projects=tuple(self.sidebar.expanded_projects()),
         )
         save_config(self._app.config)
         return False
+
+    def _collect_saved_tabs(self) -> list[SavedTab]:
+        latest_titles: dict[str, str] = {}
+        for project in self.sidebar._model.projects:  # noqa: SLF001
+            for s in project.sessions:
+                latest_titles[s.id] = s.title
+
+        saved: list[SavedTab] = []
+        n = self._tabs.get_n_pages()
+        for i in range(n):
+            page = self._tabs.get_nth_page(i)
+            tab = page.get_child()
+            sid = getattr(tab, "session_id", None)
+            cwd = getattr(tab, "cwd", None)
+            if not cwd:
+                continue
+            title = latest_titles.get(sid) if sid else None
+            if not title:
+                title = page.get_title() or cwd
+            kind = "resume" if sid else "new"
+            saved.append(SavedTab(kind=kind, session_id=sid, title=title, cwd=cwd))
+        return saved
+
+    def _restore_saved_tabs(self) -> None:
+        for saved in self._app.config.open_tabs:
+            if saved.kind == "resume" and saved.session_id:
+                argv = self._claude_argv(saved.session_id)
+                tooltip = f"{saved.title}\nsession id: {saved.session_id}"
+            else:
+                argv = self._claude_argv(None)
+                tooltip = f"New session in {saved.cwd}"
+            if argv is None:
+                # claude binary missing — still restore a placeholder so the
+                # user sees what they had. Resume click will be a no-op; use
+                # claude-path wording in the detail instead of the button.
+                argv = ["true"]
+            self._open_tab(
+                title=saved.title,
+                tooltip=tooltip,
+                cwd=saved.cwd,
+                session_id=saved.session_id,
+                argv=argv,
+                start_dormant=True,
+                select=False,
+            )
+        if self._tabs.get_n_pages() > 0:
+            self._tabs.set_selected_page(self._tabs.get_nth_page(0))
 
 
 class App(Adw.Application):

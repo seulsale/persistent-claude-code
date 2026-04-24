@@ -99,27 +99,55 @@ class Sidebar(Gtk.Box):
         self.search.set_hexpand(True)
         self.append(search_wrap)
 
-        self._tree = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self._tree = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        self._tree.set_margin_top(2)
+        self._tree.set_margin_bottom(6)
         scrolled = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
         scrolled.set_child(self._tree)
         self.append(scrolled)
 
         self._model = Model()
         self._rows: dict[str, _SessionRow] = {}
+        self._expanded_projects: set[str] = set()
 
-        self._monitor: Gio.FileMonitor | None = None
+        self._root_monitor: Gio.FileMonitor | None = None
+        self._subdir_monitors: dict[str, Gio.FileMonitor] = {}
 
     def refresh(self) -> None:
         self._model = scan_projects(CLAUDE_PROJECTS_DIR)
         self._rebuild()
+        self._refresh_subdir_monitors()
 
     def start_watching(self) -> None:
-        if self._monitor is not None:
+        if self._root_monitor is not None:
             return
         CLAUDE_PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
         gio_dir = Gio.File.new_for_path(str(CLAUDE_PROJECTS_DIR))
-        self._monitor = gio_dir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
-        self._monitor.connect("changed", self._on_fs_changed)
+        self._root_monitor = gio_dir.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self._root_monitor.connect("changed", self._on_fs_changed)
+        self._refresh_subdir_monitors()
+
+    def _refresh_subdir_monitors(self) -> None:
+        # Gio.FileMonitor on a directory only reports events for its direct
+        # children. Since Claude writes new sessions into per-project subdirs,
+        # we also watch each subdir so new JSONL files trigger a refresh.
+        if not CLAUDE_PROJECTS_DIR.is_dir():
+            return
+        current: set[str] = set()
+        for sub in CLAUDE_PROJECTS_DIR.iterdir():
+            if not sub.is_dir():
+                continue
+            current.add(str(sub))
+            if str(sub) in self._subdir_monitors:
+                continue
+            gio_sub = Gio.File.new_for_path(str(sub))
+            mon = gio_sub.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+            mon.connect("changed", self._on_fs_changed)
+            self._subdir_monitors[str(sub)] = mon
+        # Drop monitors for subdirs that no longer exist.
+        for gone in set(self._subdir_monitors) - current:
+            mon = self._subdir_monitors.pop(gone)
+            mon.cancel()
 
     def _on_fs_changed(self, *_a: object) -> None:
         # Debounce: schedule a refresh on next idle; multiple events coalesce.
@@ -128,6 +156,13 @@ class Sidebar(Gtk.Box):
     def _debounced_refresh(self) -> bool:
         self.refresh()
         return False
+
+    def expanded_projects(self) -> list[str]:
+        return sorted(self._expanded_projects)
+
+    def set_expanded_projects(self, paths: list[str]) -> None:
+        self._expanded_projects = set(paths)
+        self._rebuild()
 
     def get_row_for_session(self, session_id: str) -> _SessionRow | None:
         return self._rows.get(session_id)
@@ -166,20 +201,35 @@ class Sidebar(Gtk.Box):
         visible = filter_sessions(query, self._model)
 
         for project in visible.projects:
-            expander = Gtk.Expander(label=_project_label(project), expanded=False)
-            expander.set_margin_start(4)
-            expander.set_margin_end(4)
+            starts_expanded = project.path in self._expanded_projects
+            expander = Gtk.Expander(expanded=starts_expanded)
+            expander.set_label_widget(_project_label_widget(project))
+            expander.set_margin_start(6)
+            expander.set_margin_end(6)
+            expander.set_margin_top(2)
+            expander.set_margin_bottom(2)
+            expander.add_css_class("pcc-folder")
             if not project.exists:
                 expander.set_tooltip_text(f"{project.path} (directory does not exist)")
                 expander.add_css_class("dim-label")
             else:
                 expander.set_tooltip_text(project.path)
 
+            expander.connect(
+                "notify::expanded",
+                self._on_expander_toggled,
+                project.path,
+            )
+
             listbox = Gtk.ListBox()
             listbox.set_selection_mode(Gtk.SelectionMode.NONE)
             listbox.set_show_separators(True)
             listbox.add_css_class("navigation-sidebar")
             listbox.add_css_class("boxed-list")
+            listbox.set_margin_top(4)
+            listbox.set_margin_start(4)
+            listbox.set_margin_end(4)
+            listbox.set_margin_bottom(4)
             listbox.connect("row-activated", self._on_row_activated)
 
             new_row = _NewSessionRow(project)
@@ -192,6 +242,12 @@ class Sidebar(Gtk.Box):
 
             expander.set_child(listbox)
             self._tree.append(expander)
+
+    def _on_expander_toggled(self, expander: Gtk.Expander, _pspec: object, project_path: str) -> None:
+        if expander.get_expanded():
+            self._expanded_projects.add(project_path)
+        else:
+            self._expanded_projects.discard(project_path)
 
     def _on_row_activated(self, _box: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
         if isinstance(row, _SessionRow):
@@ -212,6 +268,33 @@ class Sidebar(Gtk.Box):
                 return
 
 
-def _project_label(project: Project) -> str:
+def _project_label_widget(project: Project) -> Gtk.Widget:
     base = Path(project.path).name or project.path
-    return base
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    box.set_margin_top(6)
+    box.set_margin_bottom(6)
+    box.set_margin_start(4)
+    box.set_margin_end(6)
+    box.set_hexpand(True)
+
+    icon_name = "folder-symbolic" if project.exists else "folder-visiting-symbolic"
+    icon = Gtk.Image.new_from_icon_name(icon_name)
+    icon.set_pixel_size(16)
+    box.append(icon)
+
+    text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+    text_box.set_hexpand(True)
+    name = Gtk.Label(label=base, xalign=0, ellipsize=3, max_width_chars=32)
+    name.set_single_line_mode(True)
+    name.add_css_class("heading")
+    text_box.append(name)
+
+    count = len(project.sessions)
+    caption_text = f"{count} session{'s' if count != 1 else ''}"
+    caption = Gtk.Label(label=caption_text, xalign=0)
+    caption.add_css_class("dim-label")
+    caption.add_css_class("caption")
+    text_box.append(caption)
+    box.append(text_box)
+
+    return box

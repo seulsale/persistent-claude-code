@@ -81,6 +81,18 @@ class TerminalPane(Gtk.Box):
         self._session_id: str | None = None
         self._on_resume_callback: Callable[[], None] | None = None
 
+    def show_dormant(self, title: str, detail: str, resume_label: str = "Resume") -> None:
+        """Render the idle card without spawning a process.
+
+        Used when restoring a tab across app restarts — the user sees the
+        saved title plus a button that actually runs claude on click.
+        """
+        self._ended_title.set_label(title)
+        self._ended_detail.set_label(detail)
+        self._resume_button.set_label(resume_label)
+        self._resume_button.set_visible(self._on_resume_callback is not None)
+        self._stack.set_visible_child_name("ended")
+
     def spawn(self, argv: list[str], cwd: str, extra_env: dict[str, str] | None = None) -> None:
         import os
         self._last_argv = argv
@@ -88,6 +100,7 @@ class TerminalPane(Gtk.Box):
         self._stack.set_visible_child_name("terminal")
         self._ended_title.set_label("Session ended")
         self._ended_detail.set_label("")
+        self._resume_button.set_label("Resume")
 
         if extra_env:
             merged = dict(os.environ)

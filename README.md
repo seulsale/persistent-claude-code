@@ -14,7 +14,7 @@ A local GTK4 / GNOME desktop app for browsing and resuming Claude Code sessions 
 - "Session ended" placeholder with **Resume** and **Close** buttons when `claude` exits.
 - Nord-themed VTE terminal with JetBrains Mono and 8 px padding (Ghostty-lookalike).
 - Libadwaita theming follows system light/dark.
-- Startup: empty main pane; no tab restoration across launches. Only the window size is persisted.
+- Startup: previously open tabs are restored in a dormant state (title preserved, claude not spawned); click **Resume** in the tab to re-launch. Expanded sidebar folders are restored too. Window size is also persisted.
 
 ## Install
 

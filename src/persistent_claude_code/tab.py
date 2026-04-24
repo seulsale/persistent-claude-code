@@ -21,6 +21,10 @@ class SessionTab(Gtk.Box):
         argv: list[str],
         on_close_requested: Callable[[SessionTab], None],
         extra_env: dict[str, str] | None = None,
+        start_dormant: bool = False,
+        dormant_title: str = "",
+        dormant_detail: str = "",
+        dormant_resume_label: str = "Resume",
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.session_id = session_id
@@ -47,7 +51,10 @@ class SessionTab(Gtk.Box):
             session_id=session_id,
             on_resume=self._resume,
         )
-        self.terminal.spawn(argv, cwd, extra_env=extra_env)
+        if start_dormant:
+            self.terminal.show_dormant(dormant_title, dormant_detail, dormant_resume_label)
+        else:
+            self.terminal.spawn(argv, cwd, extra_env=extra_env)
         self.terminal._close_button.connect("clicked", lambda *_: self._on_close_requested(self))  # noqa: SLF001
 
         self._split = Adw.OverlaySplitView()

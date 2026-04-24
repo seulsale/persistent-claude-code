@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from persistent_claude_code.config import Config, load, save
+from persistent_claude_code.config import Config, SavedTab, load, save
 
 
 def test_defaults_when_no_file(tmp_path: Path) -> None:
@@ -55,3 +55,46 @@ def test_load_recovers_from_corrupt_json(tmp_path: Path) -> None:
     cfg = load(path)
 
     assert cfg == Config()
+
+
+def test_saved_tabs_roundtrip(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    cfg = Config(
+        open_tabs=(
+            SavedTab(kind="resume", session_id="abc123", title="Fix login bug", cwd="/home/u/app"),
+            SavedTab(kind="new", session_id=None, title="New · app", cwd="/home/u/app"),
+        ),
+        expanded_projects=("/home/u/app", "/home/u/other"),
+    )
+
+    save(cfg, path)
+    loaded = load(path)
+
+    assert loaded.open_tabs == cfg.open_tabs
+    assert loaded.expanded_projects == cfg.expanded_projects
+
+
+def test_saved_tabs_rejects_bad_entries(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({
+        "open_tabs": [
+            {"kind": "resume", "session_id": "", "title": "No id", "cwd": "/x"},      # resume w/o sid
+            {"kind": "resume", "session_id": "ok", "title": "Good", "cwd": "/y"},
+            {"kind": "bogus", "session_id": None, "title": "Bad kind", "cwd": "/z"},
+            {"kind": "new", "session_id": None, "title": 42, "cwd": "/z"},            # non-str title
+        ],
+    }))
+
+    cfg = load(path)
+
+    assert len(cfg.open_tabs) == 1
+    assert cfg.open_tabs[0].session_id == "ok"
+
+
+def test_expanded_projects_filters_non_strings(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"expanded_projects": ["/a", 7, None, "/b"]}))
+
+    cfg = load(path)
+
+    assert cfg.expanded_projects == ("/a", "/b")
