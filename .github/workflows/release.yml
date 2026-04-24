@@ -30,3 +30,18 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: packaging/aur/*.pkg.tar.zst
+
+  publish-aur:
+    runs-on: ubuntu-latest
+    needs: build-arch-package
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish PKGBUILD to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
+        with:
+          pkgname: persistent-claude-code-git
+          pkgbuild: packaging/aur/PKGBUILD
+          commit_username: seulsale
+          commit_email: me@seulsale.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
