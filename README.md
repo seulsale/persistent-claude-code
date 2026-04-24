@@ -2,7 +2,7 @@
 
 A local GTK4 / GNOME desktop app for browsing and resuming Claude Code sessions without opening a terminal, navigating to the project, and running `claude --resume <id>`.
 
-## Features (v0.1.0)
+## Features
 
 - Sidebar browser of all sessions under `~/.claude/projects/`, grouped by project, sorted by most-recent activity.
 - Fuzzy filter across project paths and session titles (`Ctrl+K`). Press `Enter` in the search box to launch the first visible session.
@@ -14,11 +14,13 @@ A local GTK4 / GNOME desktop app for browsing and resuming Claude Code sessions 
 - "Session ended" placeholder with **Resume** and **Close** buttons when `claude` exits.
 - Nord-themed VTE terminal with JetBrains Mono and 8 px padding (Ghostty-lookalike).
 - Libadwaita theming follows system light/dark.
-- Startup: previously open tabs are restored in a dormant state (title preserved, claude not spawned); click **Resume** in the tab to re-launch. Expanded sidebar folders are restored too. Window size is also persisted.
+- **Persistent state across restarts:** open tabs reopen dormant (title preserved, `claude` not spawned until you click **Resume**), and expanded sidebar folders are remembered. Window size is also persisted.
+
+Per-release details live under [`changelog/`](changelog/).
 
 ## Install
 
-Arch Linux only in v0.1.0.
+Arch Linux only.
 
 ### Recommended — AUR
 
@@ -69,6 +71,8 @@ Config lives at `~/.config/persistent-claude-code/config.json` (created on first
 | `claude_binary` | `null` | Absolute path to `claude`; `null` resolves via `$PATH`. |
 | `browser_home` | `"about:blank"` | Initial URL for a newly-opened browser pane. |
 | `window_size` | `[1400, 900]` | Window size; auto-persisted on close. |
+| `open_tabs` | `[]` | Tabs to restore on next launch; auto-persisted on close. |
+| `expanded_projects` | `[]` | Sidebar folders expanded at close; auto-persisted. |
 
 ## Keybindings
 
@@ -89,7 +93,7 @@ When the app is running, `persistent-claude-code --open-url <URL>` forwards the 
 
 If no session tab is currently selected when the URL arrives, a toast suggests opening one first.
 
-## Roadmap (not in v1)
+## Roadmap
 
 - Full-text search across all messages of all sessions.
 - In-app settings dialog.
@@ -97,7 +101,15 @@ If no session tab is currently selected when the URL arrives, a toast suggests o
 - System tray integration.
 - Multi-distro packaging (Flatpak, `.deb`, `.rpm`).
 - Multiple windows.
-- Restoring open tabs across app launches.
+
+## Changelog
+
+Per-version details live under [`changelog/`](changelog/):
+
+- [v0.1.3](changelog/v0.1.3.md) — sidebar redesign, tab persistence, AUR publish workflow.
+- [v0.1.2](changelog/v0.1.2.md) — re-tag of v0.1.1 (no functional changes).
+- [v0.1.1](changelog/v0.1.1.md) — fix `claude` lookup when launched from desktop entry.
+- [v0.1.0](changelog/v0.1.0.md) — initial release.
 
 ## License
 
