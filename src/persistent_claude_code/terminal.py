@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from gi.repository import GLib, Gtk, Vte
+from gi.repository import Gdk, Gio, GLib, Gtk, Vte
 
 OnExited = Callable[[int], None]
 
@@ -29,7 +29,6 @@ _NORD_PALETTE = [
 
 
 def _apply_nord_theme(terminal: Vte.Terminal) -> None:
-    from gi.repository import Gdk
     def parse(hex_color: str) -> Gdk.RGBA:
         rgba = Gdk.RGBA()
         rgba.parse(hex_color)
@@ -37,6 +36,72 @@ def _apply_nord_theme(terminal: Vte.Terminal) -> None:
 
     palette = [parse(c) for c in _NORD_PALETTE]
     terminal.set_colors(parse(_NORD_FG), parse(_NORD_BG), palette)
+
+
+def _copy_selection(terminal: Vte.Terminal) -> None:
+    terminal.copy_clipboard_format(Vte.Format.TEXT)
+
+
+def _install_clipboard_shortcuts(terminal: Vte.Terminal) -> None:
+    """Bind ctrl+shift+c / ctrl+shift+v to copy/paste on the VTE widget.
+
+    Vte.Terminal in GTK4 ships without these bindings — without them
+    ctrl+shift+v is delivered to the child as a plain ctrl+v.
+    """
+    controller = Gtk.ShortcutController()
+
+    def action(callback):
+        def wrapper(_widget, _args):
+            callback()
+            return True
+        return Gtk.CallbackAction.new(wrapper)
+
+    def add(accel: str, cb):
+        trig = Gtk.ShortcutTrigger.parse_string(accel)
+        controller.add_shortcut(Gtk.Shortcut.new(trig, action(cb)))
+
+    add("<Ctrl><Shift>v", terminal.paste_clipboard)
+    add("<Ctrl><Shift>c", lambda: _copy_selection(terminal))
+    terminal.add_controller(controller)
+
+
+def _install_context_menu(terminal: Vte.Terminal) -> None:
+    """Show a Copy / Paste popover on right-click."""
+    menu = Gio.Menu()
+    menu.append("Copy", "term.copy")
+    menu.append("Paste", "term.paste")
+
+    popover = Gtk.PopoverMenu.new_from_model(menu)
+    popover.set_parent(terminal)
+    popover.set_has_arrow(False)
+
+    actions = Gio.SimpleActionGroup()
+    copy_action = Gio.SimpleAction.new("copy", None)
+    copy_action.connect("activate", lambda *_: _copy_selection(terminal))
+    actions.add_action(copy_action)
+    paste_action = Gio.SimpleAction.new("paste", None)
+    paste_action.connect("activate", lambda *_: terminal.paste_clipboard())
+    actions.add_action(paste_action)
+    terminal.insert_action_group("term", actions)
+
+    def update_enabled() -> None:
+        copy_action.set_enabled(terminal.get_has_selection())
+
+    gesture = Gtk.GestureClick.new()
+    gesture.set_button(Gdk.BUTTON_SECONDARY)
+
+    def on_pressed(_gesture, _n_press, x, y):
+        update_enabled()
+        rect = Gdk.Rectangle()
+        rect.x = int(x)
+        rect.y = int(y)
+        rect.width = 1
+        rect.height = 1
+        popover.set_pointing_to(rect)
+        popover.popup()
+
+    gesture.connect("pressed", on_pressed)
+    terminal.add_controller(gesture)
 
 
 class TerminalPane(Gtk.Box):
@@ -62,6 +127,8 @@ class TerminalPane(Gtk.Box):
         self.terminal.set_margin_end(8)
         self.terminal.connect("child-exited", self._on_child_exited)
         _apply_nord_theme(self.terminal)
+        _install_clipboard_shortcuts(self.terminal)
+        _install_context_menu(self.terminal)
         self.terminal.set_hexpand(True)
         self.terminal.set_vexpand(True)
 

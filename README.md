@@ -106,6 +106,7 @@ If no session tab is currently selected when the URL arrives, a toast suggests o
 
 Per-version details live under [`changelog/`](changelog/):
 
+- [v0.1.4](changelog/v0.1.4.md) — terminal copy/paste shortcuts and right-click menu.
 - [v0.1.3](changelog/v0.1.3.md) — sidebar redesign, tab persistence, AUR publish workflow.
 - [v0.1.2](changelog/v0.1.2.md) — re-tag of v0.1.1 (no functional changes).
 - [v0.1.1](changelog/v0.1.1.md) — fix `claude` lookup when launched from desktop entry.
